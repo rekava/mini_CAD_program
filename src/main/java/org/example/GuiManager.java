@@ -12,7 +12,7 @@ public class GuiManager {
     private final ImGuiImplGlfw imGuiGlfw = new ImGuiImplGlfw();
     private final ImGuiImplGl3 imGuiGl3 = new ImGuiImplGl3();
 
-    private final SelectionManager selection;
+    private SelectionManager selection;
 
     public GuiManager(SelectionManager selection) {
         this.selection = selection;
@@ -143,5 +143,9 @@ public class GuiManager {
         imGuiGl3.dispose();
         imGuiGlfw.dispose();
         ImGui.destroyContext();
+    }
+
+    public void setSelectionManager(SelectionManager selection) {
+        this.selection = selection;
     }
 }
