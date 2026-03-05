@@ -19,5 +19,6 @@ public class Rectangle extends Shape {
 
         this.mesh = new Mesh(vertices);
         this.transform = new Transform();
+        setColor(0.0f, 0.0f, 1.0f); // синий
     }
 }

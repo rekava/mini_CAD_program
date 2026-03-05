@@ -119,6 +119,15 @@ public class Shader {
         }
     }
 
+    public void setUniformFloat(String name, float value) {
+        int location = glGetUniformLocation(programId, name);
+        glUniform1f(location, value);
+    }
+
+    public void setUniformVec3(String name, float x, float y, float z) {
+        int location = glGetUniformLocation(programId, name);
+        glUniform3f(location, x, y, z);
+    }
 
 
 }

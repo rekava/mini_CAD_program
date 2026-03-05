@@ -4,6 +4,7 @@ import org.joml.*;
 public class Shape extends SceneObject {
     public Mesh mesh;
     public Shader shader;
+    public Vector3f color = new Vector3f(0.0f, 0.8f, 0.0f);
 
     public Shape(Mesh mesh, Shader shader) {
         this.mesh = mesh;
@@ -13,9 +14,32 @@ public class Shape extends SceneObject {
     @Override
     public void render(Camera camera) {
         shader.use();
+
+        // Сохраняем исходный scale
+        Vector2f originalScale = new Vector2f(transform.scale);
+
+        if (isSelected()) {
+            // Рисуем контур
+            transform.scale.set(originalScale.x * 1.02f, originalScale.y * 1.02f);
+
+            shader.setUniformMat4("projection", camera.projection);
+            shader.setUniformMat4("view", camera.getViewMatrix());
+            shader.setUniformMat4("model", transform.getModelMatrix());
+            shader.setUniformFloat("isOutline", 1.0f);
+            shader.setUniformVec3("outlineColor", 1.0f, 0.8f, 0.0f); // золотой
+
+            mesh.render();
+
+            transform.scale.set(originalScale);
+        }
+
+        // Рисуем саму фигуру
         shader.setUniformMat4("projection", camera.projection);
         shader.setUniformMat4("view", camera.getViewMatrix());
         shader.setUniformMat4("model", transform.getModelMatrix());
+        shader.setUniformFloat("isOutline", 0.0f);
+        shader.setUniformVec3("fillColor", color.x, color.y, color.z); // цвет фигуры
+
         mesh.render();
     }
 
@@ -48,4 +72,8 @@ public class Shape extends SceneObject {
         mesh.cleanup();
         shader.cleanup();
     }
+    public void setColor(float r, float g, float b) {
+        color.set(r, g, b);
+    }
+
 }

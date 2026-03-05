@@ -13,7 +13,7 @@ public class Triangle extends Shape {
 
         this.mesh = new Mesh(vertices);
         this.transform = new Transform();
-
+        setColor(1.0f, 0.0f, 0.0f); // красный
         // Для теста можно временно изменить цвет через uniform, если шейдер поддерживает
     }
 }
