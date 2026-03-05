@@ -86,6 +86,10 @@ public class Application {
 
             selectionManager.mouseButtonCallback(button, action, x[0], y[0]);
         });
+
+        glfwSetCursorPosCallback(window.getWin(), (w, x, y) -> {
+            selectionManager.cursorPosCallback(x, y);
+        });
     }
 
     void loop() {

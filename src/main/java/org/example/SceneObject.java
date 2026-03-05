@@ -13,4 +13,7 @@ public abstract class SceneObject {
 
     public abstract void render(Camera camera);
     public abstract boolean containsPoint(float worldX, float worldY);
+    // SceneObject.java
+    public abstract boolean intersectsRect(float minX, float maxX, float minY, float maxY);
+
 }

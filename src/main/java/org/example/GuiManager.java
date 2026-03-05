@@ -7,7 +7,7 @@ import imgui.flag.*;
 import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
 import org.joml.Vector3f;
-
+import java.util.List;
 public class GuiManager {
 
     private final ImGuiImplGlfw imGuiGlfw = new ImGuiImplGlfw();
@@ -36,7 +36,6 @@ public class GuiManager {
     }
 
     public void renderUI(Scene scene, int winWidth, int winHeight) {
-
         imGuiGlfw.newFrame();
         ImGui.newFrame();
 
@@ -46,10 +45,39 @@ public class GuiManager {
         renderHierarchy(scene);
         renderInspector(scene);
 
+        // Рисуем рамку выделения поверх всего
+        renderSelectionOverlay();
+
         ImGui.render();
         imGuiGl3.renderDrawData(ImGui.getDrawData());
     }
 
+    private void renderSelectionOverlay() {
+        if (selection == null) return;
+
+        float[] rect = selection.getAreaSelectRect();
+        if (rect != null) {
+            ImGui.begin("##SelectionOverlay",
+                    ImGuiWindowFlags.NoTitleBar |
+                            ImGuiWindowFlags.NoInputs |
+                            ImGuiWindowFlags.NoMove |
+                            ImGuiWindowFlags.NoScrollbar |
+                            ImGuiWindowFlags.NoBackground |
+                            ImGuiWindowFlags.NoDocking);
+
+            ImGui.setWindowPos(0, 0);
+            ImGui.setWindowSize(ImGui.getIO().getDisplaySizeX(), ImGui.getIO().getDisplaySizeY());
+
+            ImGui.getWindowDrawList().addRect(
+                    rect[0], rect[1],
+                    rect[0] + rect[2], rect[1] + rect[3],
+                    ImGui.getColorU32(1.0f, 1.0f, 1.0f, 0.5f), // белый полупрозрачный
+                    0, 0, 2.0f // толщина линии 2 пикселя
+            );
+
+            ImGui.end();
+        }
+    }
     private void renderHierarchy(Scene scene) {
 
         ImGui.begin("Scene Hierarchy");
@@ -66,7 +94,7 @@ public class GuiManager {
                 if (ImGui.treeNodeEx(obj.getName() + "##" + obj.hashCode(), flags)) {
 
                     if (ImGui.isItemClicked())
-                        selection.select(obj);
+                        selection.selectSingle(obj);
                 }
             }
 
@@ -83,66 +111,64 @@ public class GuiManager {
     }
 
     private void renderInspector(Scene scene) {
-
         ImGui.begin("Inspector");
 
-        SceneObject selectedObject = selection.getSelected();
+        List<SceneObject> selected = selection.getSelectedObjects();
 
-        if (selectedObject != null && selectedObject instanceof Shape) {
-            Shape selectedShape = (Shape) selectedObject;
-
-            if (ImGui.collapsingHeader("Transform", ImGuiTreeNodeFlags.DefaultOpen)) {
-
-                float[] pos = {
-                        selectedShape.transform.position.x,
-                        selectedShape.transform.position.y
-                };
-
-                if (drawVec2Control("Position", pos)) {
-                    selectedShape.transform.position.set(pos[0], pos[1]);
-                }
-            }
-
-            ImGui.spacing();
-
-            if (ImGui.collapsingHeader("Color", ImGuiTreeNodeFlags.DefaultOpen)) {
-
-                float[] color = {
-                        selectedShape.color.x,
-                        selectedShape.color.y,
-                        selectedShape.color.z
-                };
-
-                // Color Picker
-                if (ImGui.colorPicker3("Color Picker", color)) {
-                    selectedShape.color.set(color[0], color[1], color[2]);
-                }
-
-                // Ручной ввод RGB
-                if (ImGui.inputFloat3("RGB", color)) {
-                    // Ограничиваем значения от 0 до 1
-                    color[0] = Math.max(0, Math.min(1, color[0]));
-                    color[1] = Math.max(0, Math.min(1, color[1]));
-                    color[2] = Math.max(0, Math.min(1, color[2]));
-                    selectedShape.color.set(color[0], color[1], color[2]);
-                }
-
-                // Предпросмотр цвета
-                ImGui.colorButton("Preview", color);
-            }
-
-            ImGui.spacing();
-
-            if (ImGui.button("Delete Object", -1, 0)) {
-                scene.remove(selectedObject);
-                selection.clear();
-            }
-
-        } else if (selectedObject != null) {
-            // Если объект не Shape (маловероятно)
-            ImGui.text("Object properties not available");
-        } else {
+        if (selected.isEmpty()) {
             ImGui.textDisabled("Select an object to see properties");
+        } else if (selected.size() == 1) {
+            // Один объект — показываем его свойства
+            SceneObject selectedObject = selected.get(0);
+            if (selectedObject instanceof Shape) {
+                Shape selectedShape = (Shape) selectedObject;
+
+                if (ImGui.collapsingHeader("Transform", ImGuiTreeNodeFlags.DefaultOpen)) {
+                    float[] pos = {
+                            selectedShape.transform.position.x,
+                            selectedShape.transform.position.y
+                    };
+                    if (drawVec2Control("Position", pos)) {
+                        selectedShape.transform.position.set(pos[0], pos[1]);
+                    }
+                }
+
+                ImGui.spacing();
+
+                if (ImGui.collapsingHeader("Color", ImGuiTreeNodeFlags.DefaultOpen)) {
+                    float[] color = {
+                            selectedShape.color.x,
+                            selectedShape.color.y,
+                            selectedShape.color.z
+                    };
+
+                    if (ImGui.colorPicker3("Color Picker", color)) {
+                        selectedShape.color.set(color[0], color[1], color[2]);
+                    }
+
+                    if (ImGui.inputFloat3("RGB", color)) {
+                        color[0] = Math.max(0, Math.min(1, color[0]));
+                        color[1] = Math.max(0, Math.min(1, color[1]));
+                        color[2] = Math.max(0, Math.min(1, color[2]));
+                        selectedShape.color.set(color[0], color[1], color[2]);
+                    }
+
+                    ImGui.colorButton("Preview", color);
+                }
+
+                ImGui.spacing();
+
+                if (ImGui.button("Delete Object", -1, 0)) {
+                    scene.remove(selectedObject);
+                    selection.clearSelection();
+                }
+            } else {
+                ImGui.text("Object properties not available");
+            }
+        } else {
+            // Несколько объектов — показываем заглушку
+            ImGui.textDisabled("Multiple objects selected (" + selected.size() + ")");
+            ImGui.textDisabled("Edit properties individually");
         }
 
         ImGui.end();

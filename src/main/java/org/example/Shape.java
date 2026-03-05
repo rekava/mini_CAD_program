@@ -67,6 +67,31 @@ public class Shape extends SceneObject {
 
         return worldX >= minX && worldX <= maxX && worldY >= minY && worldY <= maxY;
     }
+    @Override
+    public boolean intersectsRect(float minX, float maxX, float minY, float maxY) {
+        float[] vertices = mesh.getVertices();
+        if (vertices == null) return false;
+
+        Matrix4f model = transform.getModelMatrix();
+        Vector4f vec = new Vector4f();
+
+        float objMinX = Float.MAX_VALUE;
+        float objMaxX = -Float.MAX_VALUE;
+        float objMinY = Float.MAX_VALUE;
+        float objMaxY = -Float.MAX_VALUE;
+
+        for (int i = 0; i < vertices.length; i += 3) {
+            vec.set(vertices[i], vertices[i+1], vertices[i+2], 1.0f);
+            model.transform(vec);
+            if (vec.x < objMinX) objMinX = vec.x;
+            if (vec.x > objMaxX) objMaxX = vec.x;
+            if (vec.y < objMinY) objMinY = vec.y;
+            if (vec.y > objMaxY) objMaxY = vec.y;
+        }
+
+        // Проверка пересечения двух прямоугольников
+        return !(objMaxX < minX || objMinX > maxX || objMaxY < minY || objMinY > maxY);
+    }
 
     public void cleanup() {
         mesh.cleanup();
