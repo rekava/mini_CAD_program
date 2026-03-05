@@ -16,7 +16,7 @@ public class Application {
     Renderer renderer;
     Camera camera;
     GuiManager guiManager;
-
+    SelectionManager selectionManager = new SelectionManager();
     void init(){
 
         if(!glfwInit()){
@@ -28,7 +28,7 @@ public class Application {
         glfwMakeContextCurrent(window.getWin());
         GL.createCapabilities();
 
-        guiManager = new GuiManager();
+        guiManager = new GuiManager(selectionManager);
 
         setupCallbacks();
         guiManager.init(window.getWin());

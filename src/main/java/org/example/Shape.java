@@ -26,4 +26,5 @@ public class Shape extends SceneObject{
         mesh.cleanup();
         shader.cleanup();
     }
+
 }
