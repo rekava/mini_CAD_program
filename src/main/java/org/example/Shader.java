@@ -110,14 +110,15 @@ public class Shader {
         return programId;
     }
 
-    public void setUniformMat4(String name, Matrix4f matrix4f){
-        int location = glGetUniformLocation(programId,name);
-        FloatBuffer buffer = BufferUtils.createFloatBuffer(16);
-        matrix4f.get(buffer);
-        buffer.flip();
-        glUniformMatrix4fv(location,false, buffer);
-
+    public void setUniformMat4(String name, Matrix4f matrix) {
+        int location = glGetUniformLocation(programId, name);
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            FloatBuffer buffer = stack.mallocFloat(16);
+            matrix.get(buffer); // Записываем данные JOML матрицы в буфер
+            glUniformMatrix4fv(location, false, buffer);
+        }
     }
+
 
 
 }

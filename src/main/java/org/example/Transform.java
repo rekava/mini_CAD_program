@@ -15,4 +15,23 @@ public class Transform {
                 .scale(scale.x,scale.y,1f);
     }
 
+    public void setPosition(float x, float y){
+        this.position.x = x;
+        this.position.y = y;
+    }
+
+    public void setPosition(Vector2f newPosition){
+        this.position = newPosition;
+    }
+
+    public void  translate(float dx,float dy){
+        this.position.x += dx;
+        this.position.y += dy;
+
+    }
+
+    public Vector2f getPosition(){
+        return  new Vector2f(position);
+    }
+
 }

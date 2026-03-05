@@ -12,9 +12,13 @@ public class Shape extends SceneObject{
     }
 
     @Override
-    void render(){
+    void render(Camera camera){
         shader.use();
+        // Внутри цикла отрисовки
+        shader.setUniformMat4("projection", camera.projection);
+        shader.setUniformMat4("view", camera.getViewMatrix());
         shader.setUniformMat4("model", transform.getModelMatrix());
+
         mesh.render();
     }
 
