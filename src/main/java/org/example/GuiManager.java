@@ -6,7 +6,6 @@ import imgui.ImGuiStyle;
 import imgui.flag.*;
 import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
-import org.joml.Vector3f;
 import java.util.List;
 
 public class GuiManager {
@@ -16,9 +15,11 @@ public class GuiManager {
 
     private SelectionManager selection;
     private ToolManager toolManager;
+    private Camera camera;
 
-    public GuiManager(SelectionManager selection) {
+    public GuiManager(SelectionManager selection, Camera camera) {
         this.selection = selection;
+        this.camera = camera;
     }
 
     public void init(long windowPtr) {
@@ -38,23 +39,19 @@ public class GuiManager {
     }
 
     public void renderUI(Scene scene, int winWidth, int winHeight) {
-
         imGuiGlfw.newFrame();
         ImGui.newFrame();
 
-        // 1. Сначала создаём dockspace (он занимает всё окно)
         int dockFlags = ImGuiDockNodeFlags.PassthruCentralNode;
         ImGui.dockSpaceOverViewport(ImGui.getMainViewport(), dockFlags);
 
-        // 2. Потом рисуем панель инструментов (она будет поверх, но НЕ внутри dockspace)
         renderToolbar();
-
-        // 3. Рисуем остальные окна (они будут прикреплены к dockspace)
         renderHierarchy(scene);
         renderInspector(scene);
-
-        // 4. Оверлей поверх всего
         renderSelectionOverlay();
+
+        // Рисуем гизмо для выделенных объектов
+        renderGizmos();
 
         ImGui.render();
         imGuiGl3.renderDrawData(ImGui.getDrawData());
@@ -62,77 +59,65 @@ public class GuiManager {
 
     private void renderToolbar() {
         ImGui.begin("Tools",
-                ImGuiWindowFlags.NoTitleBar |
-                        ImGuiWindowFlags.AlwaysAutoResize |
-                        ImGuiWindowFlags.NoMove |
-                        ImGuiWindowFlags.NoDocking); // важно: не участвует в докинге
+            ImGuiWindowFlags.NoTitleBar |
+                ImGuiWindowFlags.AlwaysAutoResize |
+                ImGuiWindowFlags.NoMove |
+                ImGuiWindowFlags.NoDocking);
 
         ImGui.setWindowPos(10, 10);
 
         Tool current = toolManager != null ? toolManager.getCurrentTool() : Tool.SELECT;
 
-        if (current == Tool.SELECT) {
-            ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
-        }
-        if (ImGui.button("Select")) {
-            if (toolManager != null) toolManager.setTool(Tool.SELECT);
-        }
-        if (current == Tool.SELECT) {
-            ImGui.popStyleColor();
-        }
-
+        if (current == Tool.SELECT) ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
+        if (ImGui.button("Select")) toolManager.setTool(Tool.SELECT);
+        if (current == Tool.SELECT) ImGui.popStyleColor();
         ImGui.sameLine();
 
-        if (current == Tool.CREATE_TRIANGLE) {
-            ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
-        }
-        if (ImGui.button("Triangle")) {
-            if (toolManager != null) toolManager.setTool(Tool.CREATE_TRIANGLE);
-        }
-        if (current == Tool.CREATE_TRIANGLE) {
-            ImGui.popStyleColor();
-        }
-
+        if (current == Tool.TRANSLATE) ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
+        if (ImGui.button("Move")) toolManager.setTool(Tool.TRANSLATE);
+        if (current == Tool.TRANSLATE) ImGui.popStyleColor();
         ImGui.sameLine();
 
-        if (current == Tool.CREATE_RECTANGLE) {
-            ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
-        }
-        if (ImGui.button("Rectangle")) {
-            if (toolManager != null) toolManager.setTool(Tool.CREATE_RECTANGLE);
-        }
-        if (current == Tool.CREATE_RECTANGLE) {
-            ImGui.popStyleColor();
-        }
+        if (current == Tool.ROTATE) ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
+        if (ImGui.button("Rotate")) toolManager.setTool(Tool.ROTATE);
+        if (current == Tool.ROTATE) ImGui.popStyleColor();
+        ImGui.sameLine();
+
+        if (current == Tool.SCALE) ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
+        if (ImGui.button("Scale")) toolManager.setTool(Tool.SCALE);
+        if (current == Tool.SCALE) ImGui.popStyleColor();
+        ImGui.sameLine();
+
+        if (current == Tool.CREATE_TRIANGLE) ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
+        if (ImGui.button("Triangle")) toolManager.setTool(Tool.CREATE_TRIANGLE);
+        if (current == Tool.CREATE_TRIANGLE) ImGui.popStyleColor();
+        ImGui.sameLine();
+
+        if (current == Tool.CREATE_RECTANGLE) ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
+        if (ImGui.button("Rectangle")) toolManager.setTool(Tool.CREATE_RECTANGLE);
+        if (current == Tool.CREATE_RECTANGLE) ImGui.popStyleColor();
 
         ImGui.end();
     }
 
     private void renderHierarchy(Scene scene) {
-
         ImGui.begin("Scene Hierarchy");
 
         if (ImGui.treeNodeEx("Root Scene", ImGuiTreeNodeFlags.DefaultOpen)) {
-
             for (SceneObject obj : scene.getSceneObjectList()) {
-
                 int flags = ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.NoTreePushOnOpen;
-
                 if (selection.isSelected(obj))
                     flags |= ImGuiTreeNodeFlags.Selected;
 
                 if (ImGui.treeNodeEx(obj.getName() + "##" + obj.hashCode(), flags)) {
-
                     if (ImGui.isItemClicked())
                         selection.selectSingle(obj);
                 }
             }
-
             ImGui.treePop();
         }
 
         ImGui.separator();
-
         if (ImGui.button("Add Object", -1, 0)) {
             // логика создания объекта
         }
@@ -141,7 +126,6 @@ public class GuiManager {
     }
 
     private void renderInspector(Scene scene) {
-
         ImGui.begin("Inspector");
 
         List<SceneObject> selected = selection.getSelectedObjects();
@@ -155,23 +139,26 @@ public class GuiManager {
 
                 if (ImGui.collapsingHeader("Transform", ImGuiTreeNodeFlags.DefaultOpen)) {
                     float[] pos = {
-                            selectedShape.transform.position.x,
-                            selectedShape.transform.position.y
+                        selectedShape.transform.position.x,
+                        selectedShape.transform.position.y
                     };
                     if (drawVec2Control("Position", pos)) {
                         selectedShape.transform.position.set(pos[0], pos[1]);
                     }
 
-                    // Добавляем управление размером (scale)
                     float[] scale = {
-                            selectedShape.transform.scale.x,
-                            selectedShape.transform.scale.y
+                        selectedShape.transform.scale.x,
+                        selectedShape.transform.scale.y
                     };
                     if (drawVec2Control("Size", scale)) {
-                        // Не даём размеру стать нулевым или отрицательным
                         scale[0] = Math.max(0.1f, scale[0]);
                         scale[1] = Math.max(0.1f, scale[1]);
                         selectedShape.transform.scale.set(scale[0], scale[1]);
+                    }
+
+                    float[] rot = { selectedShape.transform.rotation };
+                    if (ImGui.dragFloat("Rotation", rot, 0.01f)) {
+                        selectedShape.transform.rotation = rot[0];
                     }
                 }
 
@@ -179,9 +166,9 @@ public class GuiManager {
 
                 if (ImGui.collapsingHeader("Color", ImGuiTreeNodeFlags.DefaultOpen)) {
                     float[] color = {
-                            selectedShape.color.x,
-                            selectedShape.color.y,
-                            selectedShape.color.z
+                        selectedShape.color.x,
+                        selectedShape.color.y,
+                        selectedShape.color.z
                     };
 
                     if (ImGui.colorPicker3("Color Picker", color)) {
@@ -215,14 +202,11 @@ public class GuiManager {
     }
 
     private boolean drawVec2Control(String label, float[] values) {
-
         boolean changed = false;
 
         ImGui.pushID(label);
-
         ImGui.columns(2);
         ImGui.setColumnWidth(0, 80);
-
         ImGui.text(label);
         ImGui.nextColumn();
 
@@ -230,7 +214,6 @@ public class GuiManager {
             changed = true;
 
         ImGui.columns(1);
-
         ImGui.popID();
 
         return changed;
@@ -243,36 +226,45 @@ public class GuiManager {
         if (selectRect != null) {
             drawRect(selectRect, 1.0f, 1.0f, 1.0f, 0.5f);
         }
-
-        // Весь этот блок удаляем
-        // if (toolManager != null) {
-        //     float[] createRect = toolManager.getCreationRect();
-        //     if (createRect != null) {
-        //         drawRect(createRect, 0.0f, 1.0f, 0.0f, 0.3f);
-        //     }
-        // }
     }
 
     private void drawRect(float[] rect, float r, float g, float b, float a) {
         ImGui.begin("##Overlay",
-                ImGuiWindowFlags.NoTitleBar |
-                        ImGuiWindowFlags.NoInputs |
-                        ImGuiWindowFlags.NoMove |
-                        ImGuiWindowFlags.NoScrollbar |
-                        ImGuiWindowFlags.NoBackground |
-                        ImGuiWindowFlags.NoDocking);
+            ImGuiWindowFlags.NoTitleBar |
+                ImGuiWindowFlags.NoInputs |
+                ImGuiWindowFlags.NoMove |
+                ImGuiWindowFlags.NoScrollbar |
+                ImGuiWindowFlags.NoBackground |
+                ImGuiWindowFlags.NoDocking);
 
         ImGui.setWindowPos(0, 0);
         ImGui.setWindowSize(ImGui.getIO().getDisplaySizeX(), ImGui.getIO().getDisplaySizeY());
 
         ImGui.getWindowDrawList().addRect(
-                rect[0], rect[1],
-                rect[0] + rect[2], rect[1] + rect[3],
-                ImGui.getColorU32(r, g, b, a),
-                0, 0, 2.0f
+            rect[0], rect[1],
+            rect[0] + rect[2], rect[1] + rect[3],
+            ImGui.getColorU32(r, g, b, a),
+            0, 0, 2.0f
         );
 
         ImGui.end();
+    }
+
+    private void renderGizmos() {
+        if (toolManager == null || selection == null) return;
+
+        List<SceneObject> selected = selection.getSelectedObjects();
+        if (selected.size() != 1) return; // Пока поддерживаем только один объект
+
+        SceneObject obj = selected.get(0);
+        if (!(obj instanceof Shape)) return;
+
+        Shape shape = (Shape) obj;
+        Tool currentTool = toolManager.getCurrentTool();
+
+        if (currentTool == Tool.TRANSLATE || currentTool == Tool.ROTATE || currentTool == Tool.SCALE) {
+            toolManager.getGizmo().draw(shape, currentTool);
+        }
     }
 
     public void dispose() {
@@ -289,9 +281,7 @@ public class GuiManager {
         this.toolManager = toolManager;
     }
 
-    // Добавьте это внутрь класса GuiManager
     public ImGuiImplGlfw getImGuiGlfw() {
         return imGuiGlfw;
     }
-
 }

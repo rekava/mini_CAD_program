@@ -26,9 +26,6 @@ public class Application {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        guiManager = new GuiManager(null);
-        guiManager.init(window.getWin());
-
         Shader shader = new Shader("src/main/resources/shaders/vertex.glsl", "src/main/resources/shaders/fragment.glsl");
         shader.create();
 
@@ -40,13 +37,14 @@ public class Application {
         Scene scene = new Scene();
         renderer = new Renderer(scene);
         scene.add(tri);
-        //scene.add(rec);
+        scene.add(rec);
 
-        toolManager = new ToolManager(scene, camera, shader);
         selectionManager = new SelectionManager(scene, camera);
-
-        guiManager.setSelectionManager(selectionManager);
+        toolManager = new ToolManager(scene, camera, shader, selectionManager);
+        guiManager = new GuiManager(selectionManager, camera);
         guiManager.setToolManager(toolManager);
+
+        guiManager.init(window.getWin());
 
         setupCallbacks();
         glfwShowWindow(window.getWin());
@@ -60,7 +58,6 @@ public class Application {
             window.setHeight(height);
         });
 
-        // Backspace и функциональные клавиши
         glfwSetKeyCallback(window.getWin(), (w, key, scancode, action, mods) -> {
             guiManager.getImGuiGlfw().keyCallback(w, key, scancode, action, mods);
 
@@ -82,7 +79,6 @@ public class Application {
             }
         });
 
-        // Текстовый ввод
         glfwSetCharCallback(window.getWin(), (w, codepoint) -> {
             guiManager.getImGuiGlfw().charCallback(w, codepoint);
         });
@@ -105,27 +101,17 @@ public class Application {
             double[] y = new double[1];
             glfwGetCursorPos(window.getWin(), x, y);
 
-            toolManager.mouseButtonCallback(button, action, x[0], y[0]);
-            if (!toolManager.isCreating()) {
-                selectionManager.mouseButtonCallback(button, action, x[0], y[0]);
-            }
+            toolManager.mouseButtonCallback(button, action, mods, x[0], y[0]);
         });
 
         glfwSetCursorPosCallback(window.getWin(), (w, x, y) -> {
-            // ImGui сам следит за мышью через дескриптор окна, здесь проброс обычно не нужен
-            selectionManager.cursorPosCallback(x, y);
             toolManager.cursorPosCallback(x, y);
         });
     }
 
-
-
     void loop() {
         while (!glfwWindowShouldClose(window.getWin())) {
             float time = (float) glfwGetTime();
-
-            rec.transform.rotation = time * 0.5f;
-            tri.transform.rotation = time * 0.5f;
 
             renderer.clear();
             renderer.render(camera);
@@ -139,6 +125,7 @@ public class Application {
     }
 
     void terminate() {
+        guiManager.dispose();
         glfwTerminate();
     }
 }
