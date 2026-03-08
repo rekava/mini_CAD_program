@@ -5,7 +5,7 @@ public class Shape extends SceneObject {
     public Mesh mesh;
     public Shader shader;
     public Vector3f color = new Vector3f(0.0f, 0.8f, 0.0f);
-
+    public boolean isPreview = false; // для призраков
     public Shape(Mesh mesh, Shader shader) {
         this.mesh = mesh;
         this.shader = shader;
@@ -15,30 +15,31 @@ public class Shape extends SceneObject {
     public void render(Camera camera) {
         shader.use();
 
-        // Сохраняем исходный scale
         Vector2f originalScale = new Vector2f(transform.scale);
 
-        if (isSelected()) {
-            // Рисуем контур
+        if (isSelected() && !isPreview) { // призраки не выделяются контуром
             transform.scale.set(originalScale.x * 1.02f, originalScale.y * 1.02f);
 
             shader.setUniformMat4("projection", camera.projection);
             shader.setUniformMat4("view", camera.getViewMatrix());
             shader.setUniformMat4("model", transform.getModelMatrix());
             shader.setUniformFloat("isOutline", 1.0f);
-            shader.setUniformVec3("outlineColor", 1.0f, 0.8f, 0.0f); // золотой
+            shader.setUniformVec3("outlineColor", 1.0f, 0.8f, 0.0f);
 
             mesh.render();
 
             transform.scale.set(originalScale);
         }
 
-        // Рисуем саму фигуру
         shader.setUniformMat4("projection", camera.projection);
         shader.setUniformMat4("view", camera.getViewMatrix());
         shader.setUniformMat4("model", transform.getModelMatrix());
         shader.setUniformFloat("isOutline", 0.0f);
-        shader.setUniformVec3("fillColor", color.x, color.y, color.z); // цвет фигуры
+        shader.setUniformVec3("fillColor", color.x, color.y, color.z);
+
+        // Призраки полупрозрачные
+        float alpha = isPreview ? 0.5f : 1.0f;
+        shader.setUniformFloat("alpha", alpha);
 
         mesh.render();
     }

@@ -8,12 +8,14 @@ import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
 import org.joml.Vector3f;
 import java.util.List;
+
 public class GuiManager {
 
     private final ImGuiImplGlfw imGuiGlfw = new ImGuiImplGlfw();
     private final ImGuiImplGl3 imGuiGl3 = new ImGuiImplGl3();
 
     private SelectionManager selection;
+    private ToolManager toolManager;
 
     public GuiManager(SelectionManager selection) {
         this.selection = selection;
@@ -36,48 +38,76 @@ public class GuiManager {
     }
 
     public void renderUI(Scene scene, int winWidth, int winHeight) {
+
         imGuiGlfw.newFrame();
         ImGui.newFrame();
 
+        // 1. Сначала создаём dockspace (он занимает всё окно)
         int dockFlags = ImGuiDockNodeFlags.PassthruCentralNode;
         ImGui.dockSpaceOverViewport(ImGui.getMainViewport(), dockFlags);
 
+        // 2. Потом рисуем панель инструментов (она будет поверх, но НЕ внутри dockspace)
+        renderToolbar();
+
+        // 3. Рисуем остальные окна (они будут прикреплены к dockspace)
         renderHierarchy(scene);
         renderInspector(scene);
 
-        // Рисуем рамку выделения поверх всего
+        // 4. Оверлей поверх всего
         renderSelectionOverlay();
 
         ImGui.render();
         imGuiGl3.renderDrawData(ImGui.getDrawData());
     }
 
-    private void renderSelectionOverlay() {
-        if (selection == null) return;
+    private void renderToolbar() {
+        ImGui.begin("Tools",
+                ImGuiWindowFlags.NoTitleBar |
+                        ImGuiWindowFlags.AlwaysAutoResize |
+                        ImGuiWindowFlags.NoMove |
+                        ImGuiWindowFlags.NoDocking); // важно: не участвует в докинге
 
-        float[] rect = selection.getAreaSelectRect();
-        if (rect != null) {
-            ImGui.begin("##SelectionOverlay",
-                    ImGuiWindowFlags.NoTitleBar |
-                            ImGuiWindowFlags.NoInputs |
-                            ImGuiWindowFlags.NoMove |
-                            ImGuiWindowFlags.NoScrollbar |
-                            ImGuiWindowFlags.NoBackground |
-                            ImGuiWindowFlags.NoDocking);
+        ImGui.setWindowPos(10, 10);
 
-            ImGui.setWindowPos(0, 0);
-            ImGui.setWindowSize(ImGui.getIO().getDisplaySizeX(), ImGui.getIO().getDisplaySizeY());
+        Tool current = toolManager != null ? toolManager.getCurrentTool() : Tool.SELECT;
 
-            ImGui.getWindowDrawList().addRect(
-                    rect[0], rect[1],
-                    rect[0] + rect[2], rect[1] + rect[3],
-                    ImGui.getColorU32(1.0f, 1.0f, 1.0f, 0.5f), // белый полупрозрачный
-                    0, 0, 2.0f // толщина линии 2 пикселя
-            );
-
-            ImGui.end();
+        if (current == Tool.SELECT) {
+            ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
         }
+        if (ImGui.button("Select")) {
+            if (toolManager != null) toolManager.setTool(Tool.SELECT);
+        }
+        if (current == Tool.SELECT) {
+            ImGui.popStyleColor();
+        }
+
+        ImGui.sameLine();
+
+        if (current == Tool.CREATE_TRIANGLE) {
+            ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
+        }
+        if (ImGui.button("Triangle")) {
+            if (toolManager != null) toolManager.setTool(Tool.CREATE_TRIANGLE);
+        }
+        if (current == Tool.CREATE_TRIANGLE) {
+            ImGui.popStyleColor();
+        }
+
+        ImGui.sameLine();
+
+        if (current == Tool.CREATE_RECTANGLE) {
+            ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.5f, 0.8f, 1.0f);
+        }
+        if (ImGui.button("Rectangle")) {
+            if (toolManager != null) toolManager.setTool(Tool.CREATE_RECTANGLE);
+        }
+        if (current == Tool.CREATE_RECTANGLE) {
+            ImGui.popStyleColor();
+        }
+
+        ImGui.end();
     }
+
     private void renderHierarchy(Scene scene) {
 
         ImGui.begin("Scene Hierarchy");
@@ -111,6 +141,7 @@ public class GuiManager {
     }
 
     private void renderInspector(Scene scene) {
+
         ImGui.begin("Inspector");
 
         List<SceneObject> selected = selection.getSelectedObjects();
@@ -118,7 +149,6 @@ public class GuiManager {
         if (selected.isEmpty()) {
             ImGui.textDisabled("Select an object to see properties");
         } else if (selected.size() == 1) {
-            // Один объект — показываем его свойства
             SceneObject selectedObject = selected.get(0);
             if (selectedObject instanceof Shape) {
                 Shape selectedShape = (Shape) selectedObject;
@@ -130,6 +160,18 @@ public class GuiManager {
                     };
                     if (drawVec2Control("Position", pos)) {
                         selectedShape.transform.position.set(pos[0], pos[1]);
+                    }
+
+                    // Добавляем управление размером (scale)
+                    float[] scale = {
+                            selectedShape.transform.scale.x,
+                            selectedShape.transform.scale.y
+                    };
+                    if (drawVec2Control("Size", scale)) {
+                        // Не даём размеру стать нулевым или отрицательным
+                        scale[0] = Math.max(0.1f, scale[0]);
+                        scale[1] = Math.max(0.1f, scale[1]);
+                        selectedShape.transform.scale.set(scale[0], scale[1]);
                     }
                 }
 
@@ -166,9 +208,7 @@ public class GuiManager {
                 ImGui.text("Object properties not available");
             }
         } else {
-            // Несколько объектов — показываем заглушку
             ImGui.textDisabled("Multiple objects selected (" + selected.size() + ")");
-            ImGui.textDisabled("Edit properties individually");
         }
 
         ImGui.end();
@@ -196,6 +236,45 @@ public class GuiManager {
         return changed;
     }
 
+    private void renderSelectionOverlay() {
+        if (selection == null) return;
+
+        float[] selectRect = selection.getAreaSelectRect();
+        if (selectRect != null) {
+            drawRect(selectRect, 1.0f, 1.0f, 1.0f, 0.5f);
+        }
+
+        // Весь этот блок удаляем
+        // if (toolManager != null) {
+        //     float[] createRect = toolManager.getCreationRect();
+        //     if (createRect != null) {
+        //         drawRect(createRect, 0.0f, 1.0f, 0.0f, 0.3f);
+        //     }
+        // }
+    }
+
+    private void drawRect(float[] rect, float r, float g, float b, float a) {
+        ImGui.begin("##Overlay",
+                ImGuiWindowFlags.NoTitleBar |
+                        ImGuiWindowFlags.NoInputs |
+                        ImGuiWindowFlags.NoMove |
+                        ImGuiWindowFlags.NoScrollbar |
+                        ImGuiWindowFlags.NoBackground |
+                        ImGuiWindowFlags.NoDocking);
+
+        ImGui.setWindowPos(0, 0);
+        ImGui.setWindowSize(ImGui.getIO().getDisplaySizeX(), ImGui.getIO().getDisplaySizeY());
+
+        ImGui.getWindowDrawList().addRect(
+                rect[0], rect[1],
+                rect[0] + rect[2], rect[1] + rect[3],
+                ImGui.getColorU32(r, g, b, a),
+                0, 0, 2.0f
+        );
+
+        ImGui.end();
+    }
+
     public void dispose() {
         imGuiGl3.dispose();
         imGuiGlfw.dispose();
@@ -205,4 +284,14 @@ public class GuiManager {
     public void setSelectionManager(SelectionManager selection) {
         this.selection = selection;
     }
+
+    public void setToolManager(ToolManager toolManager) {
+        this.toolManager = toolManager;
+    }
+
+    // Добавьте это внутрь класса GuiManager
+    public ImGuiImplGlfw getImGuiGlfw() {
+        return imGuiGlfw;
+    }
+
 }

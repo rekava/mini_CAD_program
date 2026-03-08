@@ -46,4 +46,16 @@ public class Camera {
         float worldY = position.y + ndcY * zoom;
         return new Vector2f(worldX, worldY);
     }
+
+    public Vector2f worldToScreen(float worldX, float worldY) {
+        float aspect = (float) viewportWidth / viewportHeight;
+
+        float ndcX = (worldX - position.x) / (zoom * aspect);
+        float ndcY = (worldY - position.y) / zoom;
+
+        float screenX = (ndcX + 1.0f) * 0.5f * viewportWidth;
+        float screenY = (1.0f - ndcY) * 0.5f * viewportHeight;
+
+        return new Vector2f(screenX, screenY);
+    }
 }
