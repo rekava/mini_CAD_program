@@ -3,6 +3,7 @@ package org.example;
 import static org.lwjgl.glfw.GLFW.*;
 import org.lwjgl.opengl.GL;
 import static org.lwjgl.opengl.GL33.*;
+import java.util.List;
 
 public class Application {
     Window window;
@@ -13,6 +14,7 @@ public class Application {
     GuiManager guiManager;
     SelectionManager selectionManager;
     ToolManager toolManager;
+    CommandManager commandManager;
 
     void init() {
         if (!glfwInit()) {
@@ -40,11 +42,12 @@ public class Application {
         scene.add(rec);
 
         selectionManager = new SelectionManager(scene, camera);
-        toolManager = new ToolManager(scene, camera, shader, selectionManager);
+        commandManager = new CommandManager();
+        toolManager = new ToolManager(scene, camera, shader, selectionManager, commandManager);
+
         guiManager = new GuiManager(selectionManager, camera);
         guiManager.setToolManager(toolManager);
-
-        guiManager.init(window.getWin());
+        guiManager.init(window.getWin(), scene, commandManager);
 
         setupCallbacks();
         glfwShowWindow(window.getWin());
@@ -62,6 +65,31 @@ public class Application {
             guiManager.getImGuiGlfw().keyCallback(w, key, scancode, action, mods);
 
             if (imgui.ImGui.getIO().getWantCaptureKeyboard()) return;
+
+            boolean ctrlPressed = (mods & GLFW_MOD_CONTROL) != 0;
+
+            if (action == GLFW_PRESS) {
+                if (ctrlPressed && key == GLFW_KEY_C) {
+                    selectionManager.copySelected();
+                    return;
+                }
+                if (ctrlPressed && key == GLFW_KEY_V) {
+                    selectionManager.paste();
+                    return;
+                }
+                if (ctrlPressed && key == GLFW_KEY_Z) {
+                    if (commandManager != null) commandManager.undo();
+                    return;
+                }
+                if (ctrlPressed && key == GLFW_KEY_Y) {
+                    if (commandManager != null) commandManager.redo();
+                    return;
+                }
+                if (key == GLFW_KEY_DELETE || key == GLFW_KEY_BACKSPACE) {
+                    deleteSelectedObjects();
+                    return;
+                }
+            }
 
             float moveSpeed = 0.1f * camera.zoom;
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
@@ -109,15 +137,19 @@ public class Application {
         });
     }
 
+    private void deleteSelectedObjects() {
+        if (selectionManager == null) return;
+        List<Shape> selectedShapes = selectionManager.getSelectedShapes();
+        if (commandManager != null && !selectedShapes.isEmpty()) {
+            commandManager.execute(new DeleteCommand(renderer.currentScene, selectedShapes));
+        }
+    }
+
     void loop() {
         while (!glfwWindowShouldClose(window.getWin())) {
-            float time = (float) glfwGetTime();
-
             renderer.clear();
             renderer.render(camera);
-
             guiManager.renderUI(renderer.currentScene, window.getWidth(), window.getHeight());
-
             glfwSwapBuffers(window.getWin());
             glfwPollEvents();
         }

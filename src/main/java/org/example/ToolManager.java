@@ -1,7 +1,9 @@
 package org.example;
 
 import org.joml.Vector2f;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import static org.lwjgl.glfw.GLFW.*;
 
 public class ToolManager {
@@ -11,20 +13,29 @@ public class ToolManager {
     private Camera camera;
     private Shader shader;
     private Gizmo gizmo;
+    private CommandManager commandManager;
 
-    // Для создания фигур
     private boolean isCreating = false;
     private boolean previewCreated = false;
     private Vector2f startWorld;
     private Vector2f endWorld;
     private Shape previewShape;
 
-    public ToolManager(Scene scene, Camera camera, Shader shader, SelectionManager selectionManager) {
+    private boolean isDraggingGizmo = false;
+    private List<Shape> draggedShapes;
+    private TransformCommand currentGizmoCommand;
+
+    public ToolManager(Scene scene, Camera camera, Shader shader, SelectionManager selectionManager, CommandManager commandManager) {
         this.scene = scene;
         this.camera = camera;
         this.shader = shader;
         this.selectionManager = selectionManager;
+        this.commandManager = commandManager;
         this.gizmo = new Gizmo(camera);
+    }
+
+    public Shader getShader() {
+        return shader;
     }
 
     public void setTool(Tool tool) {
@@ -32,10 +43,13 @@ public class ToolManager {
             scene.remove(previewShape);
             previewShape = null;
         }
-
         this.currentTool = tool;
         previewCreated = false;
         isCreating = false;
+
+        if (isDraggingGizmo) {
+            endGizmoDrag();
+        }
         gizmo.endDrag();
     }
 
@@ -71,22 +85,18 @@ public class ToolManager {
 
             // Трансформационные инструменты
             if (currentTool == Tool.TRANSLATE || currentTool == Tool.ROTATE || currentTool == Tool.SCALE) {
-                List<SceneObject> selected = selectionManager.getSelectedObjects();
+                List<Shape> selectedShapes = selectionManager.getSelectedShapes();
 
-                // Если есть выделенный объект, проверяем гизмо
-                if (selected.size() == 1 && selected.get(0) instanceof Shape) {
-                    Shape shape = (Shape) selected.get(0);
-                    Gizmo.Operation op = gizmo.pickOperation(screenPos, shape, currentTool);
-
+                if (!selectedShapes.isEmpty()) {
+                    Gizmo.Operation op = gizmo.pickOperation(screenPos, selectedShapes, currentTool);
                     if (op != Gizmo.Operation.NONE) {
-                        gizmo.startDrag(op, shape, worldPos, screenPos);
+                        startGizmoDrag(selectedShapes);
+                        gizmo.startDrag(op, selectedShapes, worldPos, screenPos);
                         return;
                     }
                 }
 
-                // Если не попали в гизмо, проверяем выделение
                 SceneObject picked = pickObject(worldPos);
-
                 if (picked != null) {
                     if (ctrlPressed) {
                         if (selectionManager.isSelected(picked)) {
@@ -106,7 +116,6 @@ public class ToolManager {
             // Инструмент SELECT
             if (currentTool == Tool.SELECT) {
                 SceneObject picked = pickObject(worldPos);
-
                 if (picked != null) {
                     if (ctrlPressed) {
                         if (selectionManager.isSelected(picked)) {
@@ -118,11 +127,12 @@ public class ToolManager {
                         selectionManager.selectSingle(picked);
                     }
                 } else {
-                    selectionManager.startAreaSelection(mouseX, mouseY);
+                    selectionManager.startAreaSelection(mouseX, mouseY, ctrlPressed);
                 }
             }
         }
         else if (action == GLFW_RELEASE) {
+            // Завершение создания фигуры
             if (isCreating) {
                 if (previewCreated) {
                     finishCreation();
@@ -135,14 +145,36 @@ public class ToolManager {
                 previewCreated = false;
             }
 
+            // Завершение перетаскивания гизмо
             if (gizmo.isDragging()) {
+                endGizmoDrag();
                 gizmo.endDrag();
             }
 
+            // Завершение выделения области
             if (currentTool == Tool.SELECT) {
                 selectionManager.endAreaSelection();
             }
         }
+    }
+
+    private void startGizmoDrag(List<Shape> shapes) {
+        isDraggingGizmo = true;
+        draggedShapes = new ArrayList<>(shapes);
+        currentGizmoCommand = new TransformCommand(draggedShapes);
+    }
+
+    private void endGizmoDrag() {
+        if (isDraggingGizmo && currentGizmoCommand != null && commandManager != null) {
+            currentGizmoCommand.captureNewState();
+            // Проверяем, были ли изменения
+            if (currentGizmoCommand.hasChanges()) {
+                commandManager.execute(currentGizmoCommand);
+            }
+        }
+        isDraggingGizmo = false;
+        draggedShapes = null;
+        currentGizmoCommand = null;
     }
 
     public void cursorPosCallback(double mouseX, double mouseY) {
@@ -174,7 +206,7 @@ public class ToolManager {
     }
 
     private SceneObject pickObject(Vector2f worldPos) {
-        var objects = scene.getSceneObjectList();
+        List<SceneObject> objects = scene.getSceneObjectList();
         for (int i = objects.size() - 1; i >= 0; i--) {
             SceneObject obj = objects.get(i);
             if (obj.containsPoint(worldPos.x, worldPos.y)) {
@@ -242,12 +274,20 @@ public class ToolManager {
             case CREATE_RECTANGLE:
                 newShape = new Rectangle(shader);
                 break;
+            default:
+                return;
         }
 
         if (newShape != null) {
             newShape.transform.scale.set(width, height);
             newShape.transform.position.set(centerX, centerY);
-            scene.add(newShape);
+
+            if (commandManager != null) {
+                commandManager.execute(new CreateShapeCommand(scene, newShape));
+            } else {
+                scene.add(newShape);
+            }
+            selectionManager.selectSingle(newShape);
         }
     }
 
