@@ -35,6 +35,7 @@ public class GuiManager {
     private Camera camera;
     private Scene scene;
     private CommandManager commandManager;
+    private Grid grid;
 
     private Map<String, Integer> iconTextures = new HashMap<>();
     private static final int ICON_SIZE = 32;
@@ -55,6 +56,10 @@ public class GuiManager {
     public GuiManager(SelectionManager selectionManager, Camera camera) {
         this.selectionManager = selectionManager;
         this.camera = camera;
+    }
+
+    public void setGrid(Grid grid) {
+        this.grid = grid;
     }
 
     public void init(long windowPtr, Scene scene, CommandManager commandManager) {
@@ -283,6 +288,7 @@ public class GuiManager {
                 }
                 ImGui.endMenu();
             }
+
             if (ImGui.beginMenu(getString("Edit"))) {
                 if (ImGui.menuItem(getString("Undo"), "Ctrl+Z")) {
                     if (commandManager != null) commandManager.undo();
@@ -306,6 +312,7 @@ public class GuiManager {
                 }
                 ImGui.endMenu();
             }
+
             if (ImGui.beginMenu(getString("Settings"))) {
                 if (ImGui.beginMenu(getString("Language"))) {
                     if (ImGui.menuItem(getString("English"), null, currentLanguage == Language.ENGLISH)) {
@@ -316,14 +323,50 @@ public class GuiManager {
                     }
                     ImGui.endMenu();
                 }
+
+                ImGui.separator();
+
+                if (grid != null && ImGui.beginMenu(getString("Grid Settings"))) {
+                    boolean enabled = grid.isEnabled();
+                    if (ImGui.menuItem(getString("Show Grid"), "G", enabled)) {
+                        grid.setEnabled(!enabled);
+                    }
+
+                    ImGui.separator();
+
+                    ImGui.text(getString("Grid Size"));
+                    float[] size = { grid.getSize() };
+                    ImGui.pushItemWidth(120);
+                    if (ImGui.dragFloat("##gridSize", size, 0.1f, 1.0f, 20.0f)) {
+                        grid.setSize(size[0]);
+                    }
+
+                    ImGui.text(getString("Grid Step"));
+                    float[] step = { grid.getStep() };
+                    if (ImGui.dragFloat("##gridStep", step, 0.05f, 0.25f, 5.0f)) {
+                        grid.setStep(step[0]);
+                    }
+
+                    ImGui.text(getString("Grid Color"));
+                    float[] color = grid.getColor();
+                    if (ImGui.colorEdit3("##gridColor", color)) {
+                        grid.setColor(color[0], color[1], color[2]);
+                    }
+                    ImGui.popItemWidth();
+
+                    ImGui.endMenu();
+                }
+
                 ImGui.endMenu();
             }
+
             if (ImGui.beginMenu(getString("Help"))) {
                 if (ImGui.menuItem(getString("About"))) {
                     showAboutPopup = true;
                 }
                 ImGui.endMenu();
             }
+
             height = ImGui.getWindowHeight();
             ImGui.endMainMenuBar();
         }
@@ -356,6 +399,11 @@ public class GuiManager {
                 case "Russian": return "Russian";
                 case "Help": return "Help";
                 case "About": return "About";
+                case "Grid Settings": return "Grid Settings";
+                case "Show Grid": return "Show Grid";
+                case "Grid Size": return "Grid Size";
+                case "Grid Step": return "Grid Step";
+                case "Grid Color": return "Grid Color";
                 case "Tools": return "Tools";
                 case "Scene Hierarchy": return "Scene Hierarchy";
                 case "Inspector": return "Inspector";
@@ -395,6 +443,11 @@ public class GuiManager {
                 case "Russian": return "Русский";
                 case "Help": return "Справка";
                 case "About": return "О программе";
+                case "Grid Settings": return "Настройки сетки";
+                case "Show Grid": return "Показать сетку";
+                case "Grid Size": return "Размер сетки";
+                case "Grid Step": return "Шаг сетки";
+                case "Grid Color": return "Цвет сетки";
                 case "Tools": return "Инструменты";
                 case "Scene Hierarchy": return "Иерархия сцены";
                 case "Inspector": return "Инспектор";
@@ -570,7 +623,6 @@ public class GuiManager {
     }
 
     private void renderTransformReadOnly(List<Shape> shapes) {
-        // Вычисляем средние значения для отображения
         float avgX = 0, avgY = 0;
         float avgScaleX = 0, avgScaleY = 0;
         float avgRot = 0;
@@ -592,19 +644,17 @@ public class GuiManager {
         float[] scale = { avgScaleX, avgScaleY };
         float[] rot = { avgRot };
 
-        // Позиция - только для чтения
+        float w = (ImGui.getContentRegionAvailX() - 10) / 2;
+
         ImGui.pushID("pos");
         ImGui.text(getString("Position"));
         ImGui.sameLine();
-        float w = (ImGui.getContentRegionAvailX() - 10) / 2;
         ImGui.pushItemWidth(w);
-
         ImGui.text("X");
         ImGui.sameLine();
         float[] xv = { pos[0] };
         ImGui.dragFloat("##x", xv, 0.01f);
         ImGui.sameLine();
-
         ImGui.text("Y");
         ImGui.sameLine();
         float[] yv = { pos[1] };
@@ -612,18 +662,15 @@ public class GuiManager {
         ImGui.popItemWidth();
         ImGui.popID();
 
-        // Размер - только для чтения
         ImGui.pushID("scale");
         ImGui.text(getString("Size"));
         ImGui.sameLine();
         ImGui.pushItemWidth(w);
-
         ImGui.text("X");
         ImGui.sameLine();
         float[] sx = { scale[0] };
         ImGui.dragFloat("##sx", sx, 0.01f);
         ImGui.sameLine();
-
         ImGui.text("Y");
         ImGui.sameLine();
         float[] sy = { scale[1] };
@@ -631,7 +678,6 @@ public class GuiManager {
         ImGui.popItemWidth();
         ImGui.popID();
 
-        // Поворот - только для чтения
         ImGui.pushID("rot");
         ImGui.text(getString("Rotation"));
         ImGui.sameLine();
@@ -647,7 +693,6 @@ public class GuiManager {
     private void renderColor(List<Shape> shapes) {
         float[] editColor = { shapes.get(0).color.x, shapes.get(0).color.y, shapes.get(0).color.z };
 
-        // Начало drag для цвета
         if (ImGui.isItemActivated()) {
             isDraggingColor = true;
             dragShapes = new ArrayList<>(shapes);
@@ -665,17 +710,13 @@ public class GuiManager {
         }
         ImGui.spacing();
 
-        boolean colorChanged = false;
         if (ImGui.colorPicker3(getString("Color Picker"), editColor)) {
-            colorChanged = true;
             for (Shape s : shapes) {
                 s.color.set(editColor[0], editColor[1], editColor[2]);
             }
         }
 
-        boolean rgbChanged = false;
         if (ImGui.inputFloat3(getString("RGB"), editColor)) {
-            rgbChanged = true;
             editColor[0] = Math.max(0, Math.min(1, editColor[0]));
             editColor[1] = Math.max(0, Math.min(1, editColor[1]));
             editColor[2] = Math.max(0, Math.min(1, editColor[2]));
@@ -684,7 +725,6 @@ public class GuiManager {
             }
         }
 
-        // Завершение drag для цвета
         if (isDraggingColor && !ImGui.isItemActive()) {
             isDraggingColor = false;
 

@@ -15,6 +15,8 @@ public class Application {
     SelectionManager selectionManager;
     ToolManager toolManager;
     CommandManager commandManager;
+    Grid grid; // Добавляем сетку
+    Shader shader; // Сохраняем шейдер для сетки
 
     void init() {
         if (!glfwInit()) {
@@ -27,8 +29,10 @@ public class Application {
         GL.createCapabilities();
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_LINE_SMOOTH);
+        glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
-        Shader shader = new Shader("src/main/resources/shaders/vertex.glsl", "src/main/resources/shaders/fragment.glsl");
+        shader = new Shader("src/main/resources/shaders/vertex.glsl", "src/main/resources/shaders/fragment.glsl");
         shader.create();
 
         tri = new Triangle(shader);
@@ -45,8 +49,12 @@ public class Application {
         commandManager = new CommandManager();
         toolManager = new ToolManager(scene, camera, shader, selectionManager, commandManager);
 
+        // Создаем сетку
+        grid = new Grid();
+
         guiManager = new GuiManager(selectionManager, camera);
         guiManager.setToolManager(toolManager);
+        guiManager.setGrid(grid); // Передаем сетку в GuiManager
         guiManager.init(window.getWin(), scene, commandManager);
 
         setupCallbacks();
@@ -87,6 +95,13 @@ public class Application {
                 }
                 if (key == GLFW_KEY_DELETE || key == GLFW_KEY_BACKSPACE) {
                     deleteSelectedObjects();
+                    return;
+                }
+                // Добавляем горячую клавишу для сетки G
+                if (key == GLFW_KEY_G) {
+                    if (grid != null) {
+                        grid.setEnabled(!grid.isEnabled());
+                    }
                     return;
                 }
             }
@@ -148,6 +163,12 @@ public class Application {
     void loop() {
         while (!glfwWindowShouldClose(window.getWin())) {
             renderer.clear();
+
+            // Рендерим сетку первой (в фоне)
+            if (grid != null && grid.isEnabled()) {
+                grid.render(camera, shader);
+            }
+
             renderer.render(camera);
             guiManager.renderUI(renderer.currentScene, window.getWidth(), window.getHeight());
             glfwSwapBuffers(window.getWin());
@@ -157,6 +178,7 @@ public class Application {
     }
 
     void terminate() {
+        if (grid != null) grid.cleanup();
         guiManager.dispose();
         glfwTerminate();
     }
