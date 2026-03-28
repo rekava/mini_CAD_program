@@ -15,8 +15,8 @@ public class Application {
     SelectionManager selectionManager;
     ToolManager toolManager;
     CommandManager commandManager;
-    Grid grid; // Добавляем сетку
-    Shader shader; // Сохраняем шейдер для сетки
+    Grid grid;
+    Shader shader;
 
     void init() {
         if (!glfwInit()) {
@@ -49,12 +49,12 @@ public class Application {
         commandManager = new CommandManager();
         toolManager = new ToolManager(scene, camera, shader, selectionManager, commandManager);
 
-        // Создаем сетку
+
         grid = new Grid();
 
         guiManager = new GuiManager(selectionManager, camera);
         guiManager.setToolManager(toolManager);
-        guiManager.setGrid(grid); // Передаем сетку в GuiManager
+        guiManager.setGrid(grid);
         guiManager.init(window.getWin(), scene, commandManager);
 
         setupCallbacks();
@@ -97,7 +97,7 @@ public class Application {
                     deleteSelectedObjects();
                     return;
                 }
-                // Добавляем горячую клавишу для сетки G
+
                 if (key == GLFW_KEY_G) {
                     if (grid != null) {
                         grid.setEnabled(!grid.isEnabled());
@@ -164,7 +164,7 @@ public class Application {
         while (!glfwWindowShouldClose(window.getWin())) {
             renderer.clear();
 
-            // Рендерим сетку первой (в фоне)
+
             if (grid != null && grid.isEnabled()) {
                 grid.render(camera, shader);
             }

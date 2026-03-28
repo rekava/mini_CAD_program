@@ -19,15 +19,15 @@ public class Grid {
     }
 
     private void generateGrid() {
-        // Количество линий
+
         int linesPerSide = (int)(size / step);
-        // Каждая линия - 2 вершины, всего линий: (linesPerSide * 2 + 2) по X и по Y
-        vertexCount = (linesPerSide * 2 + 2) * 4; // *2 для X и Y, *2 для двух вершин на линию
+
+        vertexCount = (linesPerSide * 2 + 2) * 4;
 
         float[] vertices = new float[vertexCount * 3];
         int idx = 0;
 
-        // Вертикальные линии (X = const)
+
         for (float x = -size; x <= size + 0.001f; x += step) {
             vertices[idx++] = x;
             vertices[idx++] = -size;
@@ -38,7 +38,7 @@ public class Grid {
             vertices[idx++] = 0;
         }
 
-        // Горизонтальные линии (Y = const)
+
         for (float y = -size; y <= size + 0.001f; y += step) {
             vertices[idx++] = -size;
             vertices[idx++] = y;
@@ -49,7 +49,7 @@ public class Grid {
             vertices[idx++] = 0;
         }
 
-        // Создаем VAO и VBO
+
         vao = glGenVertexArrays();
         vbo = glGenBuffers();
 
@@ -69,7 +69,7 @@ public class Grid {
 
         shader.use();
 
-        // Для сетки нужен специальный шейдер или используем существующий
+
         shader.setUniformMat4("projection", camera.projection);
         shader.setUniformMat4("view", camera.getViewMatrix());
         shader.setUniformMat4("model", new Matrix4f());

@@ -114,7 +114,7 @@ public class Shader {
         int location = glGetUniformLocation(programId, name);
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer buffer = stack.mallocFloat(16);
-            matrix.get(buffer); // Записываем данные JOML матрицы в буфер
+            matrix.get(buffer);
             glUniformMatrix4fv(location, false, buffer);
         }
     }

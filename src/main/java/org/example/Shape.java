@@ -17,7 +17,7 @@ public class Shape extends SceneObject {
 
         Vector2f originalScale = new Vector2f(transform.scale);
 
-        if (isSelected() && !isPreview) { // призраки не выделяются контуром
+        if (isSelected() && !isPreview) {
             transform.scale.set(originalScale.x * 1.02f, originalScale.y * 1.02f);
 
             shader.setUniformMat4("projection", camera.projection);
@@ -90,7 +90,6 @@ public class Shape extends SceneObject {
             if (vec.y > objMaxY) objMaxY = vec.y;
         }
 
-        // Проверка пересечения двух прямоугольников
         return !(objMaxX < minX || objMinX > maxX || objMaxY < minY || objMinY > maxY);
     }
 

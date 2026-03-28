@@ -3,17 +3,17 @@ package org.example;
 public class Triangle extends Shape {
 
     public Triangle(Shader shader) {
-        super(null, shader); // временно null для mesh
+        super(null, shader);
 
         float[] vertices = {
-                -0.5f, -0.5f, 0.0f,  // левая нижняя
-                0.5f, -0.5f, 0.0f,   // правая нижняя
-                0.0f, 0.5f, 0.0f     // верхняя
+                -0.5f, -0.5f, 0.0f,
+                0.5f, -0.5f, 0.0f,
+                0.0f, 0.5f, 0.0f
         };
 
         this.mesh = new Mesh(vertices);
         this.transform = new Transform();
-        setColor(1.0f, 0.0f, 0.0f); // красный
-        // Для теста можно временно изменить цвет через uniform, если шейдер поддерживает
+        setColor(1.0f, 0.0f, 0.0f);
+
     }
 }

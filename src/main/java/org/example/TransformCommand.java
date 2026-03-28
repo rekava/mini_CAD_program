@@ -24,7 +24,7 @@ public class TransformCommand implements Command {
         this.newRotations = new ArrayList<>();
         this.hasChanges = false;
 
-        // Сохраняем начальное состояние
+
         for (Shape shape : shapes) {
             oldPositions.add(new Vector2f(shape.transform.position));
             oldScales.add(new Vector2f(shape.transform.scale));
@@ -43,7 +43,7 @@ public class TransformCommand implements Command {
             newRotations.add(shape.transform.rotation);
         }
 
-        // Проверяем, были ли изменения
+
         hasChanges = false;
         for (int i = 0; i < shapes.size(); i++) {
             if (!oldPositions.get(i).equals(newPositions.get(i)) ||
